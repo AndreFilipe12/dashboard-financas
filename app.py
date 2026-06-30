@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# Importações dos módulos que criámos
+# Importações dos módulos locais
 import backend
 import graficos
 
@@ -25,6 +25,25 @@ if botao_salvar and descricao:
     df = backend.salvar_transacao(df, data, descricao, categoria, tipo, valor)
     st.sidebar.success("Transação salva!")
     st.rerun()
+
+# --- ABA DE CONFIGURAÇÃO DE METAS (Barra Lateral) ---
+st.sidebar.markdown("---")
+with st.sidebar.expander("🎯 Configurar Metas Mensais"):
+    limites_atuais = backend.carregar_limites_metas()
+    novos_limites = {}
+    
+    for categoria, valor_limite in limites_atuais.items():
+        novos_limites[categoria] = st.number_input(
+            f"Limite para {categoria}", 
+            min_value=0.00, 
+            value=float(valor_limite), 
+            step=50.00
+        )
+    
+    if st.button("💾 Salvar Novas Metas", use_container_width=True):
+        backend.salvar_limites_metas(novos_limites)
+        st.success("Metas atualizadas!")
+        st.rerun()
 
 # --- ABA DE ELIMINAR TRANSAÇÃO (Barra Lateral) ---
 if not df.empty:
@@ -94,27 +113,25 @@ if not df_filtrado.empty:
         fig_linha = graficos.gerar_grafico_linha(df_filtrado)
         st.plotly_chart(fig_linha, use_container_width=True)
 
-        # --- SISTEMA DE ALERTAS DE ORÇAMENTO ---
+    st.markdown("---")
+
+    # --- SISTEMA DE ALERTAS DE ORÇAMENTO ---
     st.subheader("🎯 Metas e Orçamentos do Mês Atual")
     status_metas = backend.calcular_orcamentos(df)
     
     if status_metas:
-        # Cria colunas dinâmicas na tela para colocar as barras lado a lado
         cols_metas = st.columns(len(status_metas))
         
         for i, (categoria, dados) in enumerate(status_metas.items()):
             with cols_metas[i]:
                 st.caption(f"**{categoria}**")
                 st.text(f"R$ {dados['gasto']:.2f} / R$ {dados['limite']:.2f}")
-                
-                # Exibe a barra de progresso
                 st.progress(dados["porcentagem"])
                 
-                # Alertas visuais com base no consumo
                 if dados["gasto"] > dados["limite"]:
                     st.error("🚨 Limite Estourado!")
                 elif dados["gasto"] >= dados["limite"] * 0.8:
-                    st.warning("⚠️ Atenção! Gasto alto.")
+                    st.warning("⚠️ Gasto alto.")
                 else:
                     st.success("✅ Dentro da meta")
 
